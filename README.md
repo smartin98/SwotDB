@@ -1,6 +1,8 @@
 # SwotDB
 Efficiently subset and query SWOT data from the source NetCDFs in a manner that is scalable and doesn't require duplicating the dataset in a different file format.
 
+![SWOT data subset in Gulf Stream](img/gulf_stream.png)
+
 ## How it works
 
 Each SWOT file has along- and across-swath coordinates ordered by time along the swath but which are unstructured in lat-lon. To subset data in a small lat-lon-time bounding box, without needlessly opening NetCDF files to check whether any points are in the bounding box, we split each file into smaller logical "tiles" (without alterring the nc files) and build a .pkl index file with coordinate bounding boxes for each tile in each file across the whole dataset. Building this index is a one-time cost (takes ~1 hr on single CPU for ~3 years of SWOT data) which then allows efficient spatiotemporal querying by only opening files containing tiles that overlap the domain of interest. An existing index can be updated as new data become available.
