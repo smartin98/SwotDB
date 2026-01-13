@@ -9,9 +9,9 @@ import pickle
 import shutil
 
 class SWOTSpatialIndex:
-    """Spatial index for SWOT swath data"""
+    """Spatial index for SWOT swath data with auto-save capability"""
     
-    def __init__(self, index_file='swot_index', tile_size=493):
+    def __init__(self, index_file='swot_index', tile_size=493, autosave_interval=100):
         # Remove .pkl extension if provided
         self.index_file = index_file.replace('.pkl', '')
         self.metadata_file = f"{self.index_file}_metadata.pkl"
@@ -23,6 +23,10 @@ class SWOTSpatialIndex:
         self.indexed_files = set()  # Track which files have been indexed
         self.tile_size = tile_size  # Store as instance attribute
         self.base_path = None  # Original base path (set when first file added)
+        
+        # Auto-save settings
+        self.autosave_interval = autosave_interval  # Save every N files
+        self.files_since_save = 0
         
     def add_file(self, filepath, tile_size=None):
         """
@@ -83,6 +87,11 @@ class SWOTSpatialIndex:
         
         ds.close()
         
+        # Auto-save check
+        self.files_since_save += 1
+        if self.autosave_interval > 0 and self.files_since_save >= self.autosave_interval:
+            self._autosave()
+        
     def _add_tile(self, filepath, line_start, line_end,
                   lat_min, lat_max, lon_min, lon_max,
                   time_min, time_max):
@@ -105,6 +114,32 @@ class SWOTSpatialIndex:
             'time_range': (time_min, time_max)
         }
     
+    def _autosave(self):
+        """Internal auto-save without resetting counter"""
+        temp_file = f"{self.metadata_file}.tmp"
+        
+        try:
+            # Save to temporary file first
+            with open(temp_file, 'wb') as f:
+                pickle.dump({
+                    'metadata': self.metadata,
+                    'file_counter': self.file_counter,
+                    'indexed_files': self.indexed_files,
+                    'tile_size': self.tile_size,
+                    'base_path': self.base_path
+                }, f)
+            
+            # Move temporary file to actual file (atomic operation)
+            shutil.move(temp_file, self.metadata_file)
+            
+            print(f"  [Auto-saved: {len(self.indexed_files)} files, {len(self.metadata)} tiles]")
+            self.files_since_save = 0
+            
+        except Exception as e:
+            print(f"  [Auto-save failed: {e}]")
+            if Path(temp_file).exists():
+                Path(temp_file).unlink()
+    
     def add_files_from_directory(self, directory, pattern='*.nc', tile_size=None):
         """
         Add all matching files from a directory
@@ -114,12 +149,19 @@ class SWOTSpatialIndex:
         new_files = [f for f in files if str(f) not in self.indexed_files]
         
         print(f"Found {len(files)} total files, {len(new_files)} new files to index")
+        if self.autosave_interval > 0:
+            print(f"Auto-save enabled: every {self.autosave_interval} files")
         
-        for filepath in new_files:
-            print(f"Indexing {filepath.name}")
+        for i, filepath in enumerate(new_files, 1):
+            print(f"[{i}/{len(new_files)}] Indexing {filepath.name}")
             self.add_file(filepath, tile_size=tile_size)
         
         print(f"Added {len(new_files)} files to index")
+        
+        # Final save if there were any changes since last auto-save
+        if self.files_since_save > 0:
+            print("Performing final save...")
+            self.save()
     
     def query(self, lat_min, lat_max, lon_min, lon_max, 
               time_start=None, time_end=None):
@@ -220,15 +262,19 @@ class SWOTSpatialIndex:
         print(f"  - {len(self.indexed_files)} files indexed")
         print(f"  - Tile size: {self.tile_size} lines")
         print(f"  - Base path: {self.base_path}")
+        
+        # Reset auto-save counter
+        self.files_since_save = 0
     
     @classmethod
-    def load(cls, index_file='swot_index', new_base_path=None):
+    def load(cls, index_file='swot_index', new_base_path=None, autosave_interval=10):
         """
         Load index from disk and rebuild R-tree
         
         Args:
             index_file: Path to index file
             new_base_path: If provided, remap all file paths to this new base
+            autosave_interval: Auto-save interval for future operations (default: 10)
         """
         index_file = index_file.replace('.pkl', '')
         metadata_file = f"{index_file}_metadata.pkl"
@@ -243,7 +289,7 @@ class SWOTSpatialIndex:
         tile_size = data.get('tile_size', 493)
         
         # Create new instance
-        idx = cls(index_file, tile_size=tile_size)
+        idx = cls(index_file, tile_size=tile_size, autosave_interval=autosave_interval)
         idx.metadata = data['metadata']
         idx.file_counter = data['file_counter']
         idx.indexed_files = data.get('indexed_files', set())
@@ -256,6 +302,7 @@ class SWOTSpatialIndex:
         
         print(f"Index loaded: {len(idx.metadata)} tiles from {len(idx.indexed_files)} files")
         print(f"  - Tile size: {idx.tile_size} lines")
+        print(f"  - Auto-save interval: {idx.autosave_interval} files")
         if idx.base_path:
             print(f"  - Original base path: {idx.base_path}")
         
@@ -272,5 +319,6 @@ class SWOTSpatialIndex:
             'num_files': len(self.indexed_files),
             'tile_size': self.tile_size,
             'base_path': self.base_path,
+            'autosave_interval': self.autosave_interval,
             'files': sorted(self.indexed_files)
         }
