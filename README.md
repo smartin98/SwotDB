@@ -24,7 +24,7 @@ import pandas as pd
 
 swot_index_filename = 'swot_index.pkl'
 lat_min = 33
-lat_max = 32
+lat_max = 43
 lon_min = 295
 lon_max = 305
 time_start = pd.Timestamp('2024-09-21')
