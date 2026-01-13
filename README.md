@@ -1,7 +1,7 @@
 # SwotDB
 Efficiently subset and query SWOT data from the source NetCDFs in a manner that is scalable and doesn't require duplicating the dataset in a different file format.
 
-![SWOT data subset in Gulf Stream](img/gulf_stream.png)
+![SWOT data subset in Gulf Stream](img/gulfstream.png)
 
 ## How it works
 
