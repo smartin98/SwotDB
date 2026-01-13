@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "swotdb"
+version = "0.1.0"
+description = "Spatial indexing and querying tools for SWOT data"
+requires-python = ">=3.9"
+
+dependencies = [
+    "numpy",
+    "pandas",
+    "xarray",
+    "shapely",
+    "geopandas",
+    "rtree",
+]
+
+
+[tool.setuptools]
+packages = ["SwotDB", "SwotDB.src"]
+
+[project.scripts]
+swotdb = "SwotDB.swotdb:main"

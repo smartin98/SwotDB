@@ -1,27 +1,41 @@
 # SwotDB
-Efficiently subset and query SWOT data from the source NetCDFs in a manner that is scalable and doesn't require duplicating the dataset in a different file format.
+
+Efficiently subset and query SWOT data from the source NetCDFs in a scalable way, without duplicating the dataset in a different file format.
 
 ![SWOT data subset in Gulf Stream](img/gulfstream.png)
 
+---
+
 ## How it works
 
-Each SWOT file has along- and across-swath coordinates ordered by time along the swath but which are unstructured in lat-lon. To subset data in a small lat-lon-time bounding box, without needlessly opening NetCDF files to check whether any points are in the bounding box, we split each file into smaller logical "tiles" (without alterring the nc files) and build a .pkl index file with coordinate bounding boxes for each tile in each file across the whole dataset. Building this index is a one-time cost (takes ~1 hr on single CPU for ~3 years of SWOT data) which then allows efficient spatiotemporal querying by only opening files containing tiles that overlap the domain of interest. An existing index can be updated as new data become available.
+Each SWOT file has along- and across-swath coordinates ordered by time along the swath but which are unstructured in lat-lon. To subset data in a small lat-lon-time bounding box without opening all NetCDF files, we split each file into smaller logical "tiles" (without altering the NetCDF files) and build a `.pkl` index file with coordinate bounding boxes for each tile across the dataset. Building this index is a one-time cost (~1 hr on a single CPU for ~3 years of SWOT data), after which spatiotemporal queries only open the files containing overlapping tiles. Existing indices can be updated as new data become available.
+
+---
+
+## Installation
+
+Install in editable mode for development:
+
+```bash
+git clone https://github.com/smartin98/SwotDB.git
+cd SwotDB
+pip install -e .
+```
 
 ## Basic usage
 
 Build index:
 
-`python swotdb.py build --data-dir /path/to/swot/data --index-file swot_index_filename`
+`swotdb build --data-dir /path/to/swot/data --index-file swot_index_filename`
 
-Update index:
+Update existing index:
 
-`python swotdb.py build --data-dir /path/to/swot/data --index-file swot_index_filename --load-existing`
+`swotdb build --data-dir /path/to/swot/data --index-file swot_index_filename --load-existing`
 
 Use index:
 
 ```python
-from src.index import SWOTSpatialIndex
-from src.query import query_swot_data
+from SwotDB import SWOTSpatialIndex, query_swot_data
 import pandas as pd
 
 swot_index_filename = 'swot_index.pkl'
@@ -50,4 +64,8 @@ ds = query_swot_data(
 
 Update the base data path for the index (e.g. if index created on different server to deployment):
 
-`python swotdb.py remap --index-file swot_index --new-base-path /different/path/to/swot/data`
+`swotdb remap --index-file swot_index_filename --new-base-path /different/path/to/swot/data`
+
+Show index info:
+
+`swotdb info --index-file swot_index_filename --list-files`

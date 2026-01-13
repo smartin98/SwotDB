@@ -1,4 +1,4 @@
-from src.index import SWOTSpatialIndex
+from SwotDB.src.index import SWOTSpatialIndex
 import xarray as xr
 import numpy as np
 import pandas as pd
