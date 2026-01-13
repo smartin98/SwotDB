@@ -34,10 +34,10 @@ def merge_line_ranges(line_ranges):
     return merged
 
 
-def query_swot_data(lat_min, lat_max, lon_min, lon_max,
+def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
                     time_start=None, time_end=None,
                     variables=['ssha_unfiltered'],
-                    index_file='swot_index.pkl'):
+                    ):
     """
     Query SWOT data within bounds, preserving (num_lines, num_pixels) structure
     
@@ -52,8 +52,6 @@ def query_swot_data(lat_min, lat_max, lon_min, lon_max,
     Returns:
         xarray Dataset with (num_lines, num_pixels) dimensions
     """
-    # Load index
-    index = SWOTSpatialIndex.load(index_file)
     
     # Query for relevant tiles
     tiles = index.query(lat_min, lat_max, lon_min, lon_max, 

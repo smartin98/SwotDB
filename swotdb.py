@@ -43,6 +43,8 @@ def build_index(args):
 def query_index(args):
     """Query spatial index"""
     print(f"Querying index: {args.index_file}")
+
+    index = SWOTSpatialIndex.load(args.index_file)
     
     # Parse time if provided
     time_start = pd.Timestamp(args.time_start) if args.time_start else None
@@ -62,6 +64,7 @@ def query_index(args):
     
     # Query data
     data = query_swot_data(
+        index,
         lat_min=args.lat_min,
         lat_max=args.lat_max,
         lon_min=args.lon_min,
@@ -69,7 +72,6 @@ def query_index(args):
         time_start=time_start,
         time_end=time_end,
         variables=variables,
-        index_file=args.index_file
     )
     
     if data is not None:
