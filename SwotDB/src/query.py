@@ -68,6 +68,7 @@ def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
     
     # Load and filter data
     datasets = []
+    false_hits = 0
     
     for filepath, line_ranges in tiles_by_file.items():
         ds = xr.open_dataset(filepath)
@@ -104,8 +105,12 @@ def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
         if file_datasets:
             file_data = xr.concat(file_datasets, dim='num_lines')
             datasets.append(file_data)
+        else:
+            false_hits += 1
         
         ds.close()
+
+    print(f"False hit rate: {false_hits}/{len(tiles_by_file)} files opened needlessly, if this is high reduce tile_size to reduce I/O")
     
     # Concatenate all results
     if datasets:
