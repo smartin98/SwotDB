@@ -19,7 +19,7 @@ Use index:
 
 ```python
 from src.index import SWOTSpatialIndex
-from src.query import *
+from src.query import query_swot_data
 import pandas as pd
 
 swot_index_filename = 'swot_index.pkl'
