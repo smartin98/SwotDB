@@ -161,6 +161,11 @@ def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
     # Concatenate all results
     if datasets:
         result = xr.concat(datasets, dim='num_lines')
+        result = result.set_coords("time")
+        result = result.sortby('time')
+        result = result.assign_coords(
+        num_lines=np.arange(result.sizes["num_lines"])
+    )
         return result
     else:
         return None
