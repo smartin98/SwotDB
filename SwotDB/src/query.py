@@ -5,6 +5,49 @@ import pandas as pd
 from pathlib import Path
 from collections import defaultdict
 
+import xarray as xr
+import numpy as np
+
+def mask_nadir_observations(ds, variables_to_mask):
+    """
+    Set specified data variables to NaN at nadir observation locations.
+    
+    Parameters:
+    -----------
+    ds : xarray.Dataset
+        The satellite dataset containing i_num_line and i_num_pixel coordinates
+    variables_to_mask : list of str
+        List of variable names to mask at nadir locations
+    
+    Returns:
+    --------
+    xarray.Dataset
+        Dataset with specified variables masked at nadir locations
+    """
+    # Create a copy to avoid modifying the original
+    ds_masked = ds.copy()
+    
+    # Get the nadir indices
+    line_indices = ds['i_num_line'].values
+    pixel_indices = ds['i_num_pixel'].values
+    
+    # Mask each specified variable
+    for var in variables_to_mask:
+        if var in ds_masked.data_vars:
+            # Create a copy of the variable's data
+            data = ds_masked[var].values.copy()
+            
+            # Set values to NaN at nadir locations
+            data[line_indices, pixel_indices] = np.nan
+            
+            # Update the dataset
+            ds_masked[var].values = data
+        else:
+            raise KeyError(f"Variable '{var}' not found in dataset")
+    
+    return ds_masked
+
+
 def merge_line_ranges(line_ranges):
     """
     Merge overlapping/adjacent line ranges into contiguous slices
@@ -37,7 +80,7 @@ def merge_line_ranges(line_ranges):
 def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
                     time_start=None, time_end=None,
                     variables=['ssha_unfiltered'],
-                    ):
+                    mask_nadir=False):
     """
     Query SWOT data within bounds, preserving (num_lines, num_pixels) structure
     
@@ -72,6 +115,9 @@ def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
     
     for filepath, line_ranges in tiles_by_file.items():
         ds = xr.open_dataset(filepath)
+
+        if mask_nadir:
+            ds = mask_nadir_observations(ds, variables)
         
         # Merge line ranges into contiguous slices
         merged_slices = merge_line_ranges(line_ranges)
