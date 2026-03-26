@@ -64,18 +64,22 @@ class SWOTSpatialIndex:
             # Get bounding box for this tile
             lat_tile = ds.latitude.isel(num_lines=slice(tile_start, tile_end))
             lon_tile = ds.longitude.isel(num_lines=slice(tile_start, tile_end))
-            
+
             lat_min, lat_max = float(lat_tile.min()), float(lat_tile.max())
-            lon_min, lon_max = float(lon_tile.min()), float(lon_tile.max())
+            # Normalize longitudes to -180/180 for consistent R-tree storage
+            lon_tile_norm = ((lon_tile + 180) % 360) - 180
+            lon_min, lon_max = float(lon_tile_norm.min()), float(lon_tile_norm.max())
             
-            # Handle dateline crossing
+            # Handle antimeridian crossing (±180°).
+            # After normalization, a crossing tile has lon_min ≈ -180 and
+            # lon_max ≈ +180 so their difference is ~360 > 180.
+            # Split at the prime meridian (0°) into a western and eastern entry.
             if lon_max - lon_min > 180:
-                # Swath crosses dateline, split into two tiles
-                self._add_tile(filepath_str, tile_start, tile_end, 
-                              lat_min, lat_max, lon_min, 180, 
+                self._add_tile(filepath_str, tile_start, tile_end,
+                              lat_min, lat_max, lon_min, 0.0,
                               time_min, time_max)
                 self._add_tile(filepath_str, tile_start, tile_end,
-                              lat_min, lat_max, -180, lon_max - 360,
+                              lat_min, lat_max, 0.0, lon_max,
                               time_min, time_max)
             else:
                 self._add_tile(filepath_str, tile_start, tile_end,
@@ -163,16 +167,29 @@ class SWOTSpatialIndex:
             print("Performing final save...")
             self.save()
     
-    def query(self, lat_min, lat_max, lon_min, lon_max, 
+    def query(self, lat_min, lat_max, lon_min, lon_max,
               time_start=None, time_end=None):
         """
         Query the index for tiles within bounds
         Returns list of dicts with file info
+
+        Longitude inputs may be in either 0-360 or -180/180 convention.
+        Wrap-around queries (e.g. lon_min=350, lon_max=10) are supported.
         """
-        bbox = (lon_min, lat_min, lon_max, lat_max)
-        
-        # Get candidate tiles from spatial index
-        candidate_ids = list(self.spatial_idx.intersection(bbox))
+        # Normalize query bounds to -180/180 to match stored tile bboxes
+        lon_min = ((lon_min + 180) % 360) - 180
+        lon_max = ((lon_max + 180) % 360) - 180
+
+        # Get candidate tiles from spatial index.
+        # If the query wraps around the dateline (lon_min > lon_max after
+        # normalization), split into two R-tree queries.
+        if lon_min > lon_max:
+            candidate_ids = list(
+                set(self.spatial_idx.intersection((lon_min, lat_min, 180.0, lat_max))) |
+                set(self.spatial_idx.intersection((-180.0, lat_min, lon_max, lat_max)))
+            )
+        else:
+            candidate_ids = list(self.spatial_idx.intersection((lon_min, lat_min, lon_max, lat_max)))
         
         # Filter by time if provided
         results = []

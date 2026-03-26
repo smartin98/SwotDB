@@ -133,11 +133,22 @@ def query_swot_data(index, lat_min, lat_max, lon_min, lon_max,
             # Find lines where ANY pixel intersects the query box
             lat = ds_slice.latitude
             lon = ds_slice.longitude
-            
+
+            # Normalize both data and query longitudes to -180/180 so that
+            # wrap-around queries (e.g. lon_min=350, lon_max=10) work correctly.
+            lon_norm = ((lon + 180) % 360) - 180
+            lon_min_norm = ((lon_min + 180) % 360) - 180
+            lon_max_norm = ((lon_max + 180) % 360) - 180
+
+            if lon_min_norm <= lon_max_norm:
+                lon_in_bounds = (lon_norm >= lon_min_norm) & (lon_norm <= lon_max_norm)
+            else:
+                # Wrap-around: pixel is in bounds if it's east of lon_min OR west of lon_max
+                lon_in_bounds = (lon_norm >= lon_min_norm) | (lon_norm <= lon_max_norm)
+
             # For each line, check if ANY pixel is in the box
             line_mask = (
-                ((lat >= lat_min) & (lat <= lat_max) & 
-                 (lon >= lon_min) & (lon <= lon_max))
+                ((lat >= lat_min) & (lat <= lat_max) & lon_in_bounds)
                 .any(dim='num_pixels')  # True if ANY pixel in the line is in bounds
             )
             
